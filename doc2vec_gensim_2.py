@@ -3,24 +3,27 @@
 
 # Set Up and Import Statements
 from gensim import utils
-from gensim.models.deprecated.doc2vec import LabeledSentence
+#from gensim.models.deprecated.doc2vec import LabeledSentence
 from gensim.models import Doc2Vec
+from random import shuffle
 
 import numpy
-from random import shuffle
-from sklearn.linear_model import LogisticRegression
+#from sklearn.linear_model import LogisticRegression
+from sklearn import svm
 
 
 model = Doc2Vec.load('./toxic.d2v')
 
-# Word Embedding Testing 
 
+
+# Word Embedding Testing 
+'''
 if ('y' == input('Test Word Embeddings? (y/n): ')):
 	tmp = input('Enter a word to test (0 to quit): ')
 	while(tmp != '0'):
 		print(model.most_similar(tmp))
 		tmp = input('Enter a word to test (0 to quit): ')
-
+'''
 
 # Sentiment Classification 
 	# First we use the document vectors to train a classifier
@@ -31,18 +34,52 @@ train_arrays = numpy.zeros((32398, 300))
 train_labels = numpy.zeros(32398)
 
 for i in range(16199):
-	prefix_train_tox = 'TRAIN_TOXIC_' + str(i)
-	prefix_train_non = 'TRAIN_NONTOXIC_' + str(i)
+	prefix_train_tox = 'TOXIC_' + str(i)
+	prefix_train_non = 'NONTOXIC_' + str(i)
 	
-	train_arrays[i] = model[prefix_train_tox]
-	train_arrays[16199 + i] = model[prefix_train_non]
+	train_arrays[i] = model.docvecs[prefix_train_tox]
+	train_arrays[16199 + i] = model.docvecs[prefix_train_non]
 
 	train_labels[i] = 1
 	train_labels[16199 + i] = 0
 
-classifier = LogisticRegression()
-classifier.fit(train_arrays, train_labels)
 
+
+opt = input("Acquire Test Score? (y/n): ")
+
+if (opt == "y"):
+	combined = list(zip(train_arrays, train_labels))
+	shuffle(combined)
+
+	train_arrays[:], train_labels[:] = zip(*combined)
+
+	split_arrays = numpy.split(train_arrays, [3240])
+	split_labels = numpy.split(train_labels, [3240])
+
+	test_arrays = split_arrays[0]
+	test_labels = split_labels[0]
+
+	train_arrays = split_arrays[1]
+	train_labels = split_labels[1]
+
+	# classifier = LogisticRegression()
+	# classifier.fit(train_arrays, train_labels)
+
+	classifier = svm.SVC(probability=True)
+	classifier.fit(train_arrays, train_labels)
+
+	print(classifier.score(test_arrays, test_labels))
+
+else:
+	classifier = svm.SVC(probability=True)
+	classifier.fit(train_arrays, train_labels)
+
+
+from sklearn.externals import joblib
+
+joblib.dump(classifier, 'classifier.pkl')
+
+'''
 if ('y' == input('Test classifier? (y/n): ')):
 	tmp = input('Enter a phrase (0 to quit): ')
 	while(tmp != '0'):
@@ -57,3 +94,4 @@ if ('y' == input('Test classifier? (y/n): ')):
 			print('Confidence: ', prob[0][1])
 		
 		tmp = input('Enter a phrase (0 to quit): ')
+'''
